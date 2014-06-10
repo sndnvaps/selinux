@@ -8,10 +8,17 @@ package selinux
 
  Used some ideas/code from the go-ini packages https://github.com/vaughan0
  By Vaughan Newton
+
+2014-06-10 22:02:58  
+   Contributor : sndnvaps <sndnvaps@gmail.com> 
+   remove some dead code 
+   
 */
 
-// #cgo pkg-config: libselinux
+// #cgo  linux CFLAGS: -Iinclude -I.
 // #include <selinux/selinux.h>
+// #include <selinux/label.h>
+// #include "label_internal.h"
 // #include <stdlib.h>
 import "C"
 import (
@@ -19,18 +26,33 @@ import (
 	"crypto/rand"
 	"unsafe"
 	"fmt"
-	"bufio"
+	//"bufio"
 	"regexp"
-	"io"
-	"os"
+	//"io"
+	//"os"
 	"strings"
 )
+
 
 var (
 	assignRegex  = regexp.MustCompile(`^([^=]+)=(.*)$`)
 	mcs_list = make(map[string]bool)
 )
 
+//type Selabel_handle C.selabel_handle
+/*
+type selabel_handle struct {
+	 selabel *C.selabel_handle
+	//selabel Selabel_handle 
+}
+
+func NewSelabel_handle() selabel_handle {
+	var sehandle selabel_handle
+	return sehandle
+}
+
+*/
+/*
 func Matchpathcon(path string, mode int) (string, error) {
 	var con C.security_context_t
 	var scon string
@@ -40,12 +62,44 @@ func Matchpathcon(path string, mode int) (string, error) {
 		C.free(unsafe.Pointer(con))
 	}
 	return scon, err
+	
+	return Selable_lookup(path, mode)
 }
+*/
 
 func Setfilecon(path,scon string) (int, error) {
         rc, err := C.lsetfilecon(C.CString(path),C.CString(scon))
 	return int(rc), err
 }
+
+func Getfilecon(path string) (string ,error) {
+	var scon string
+	var con C.security_context_t
+	//con = C.CString(scon)
+	rc, err := C.lgetfilecon(C.CString(path), &con)
+	if rc == 0 {
+		scon = C.GoString(con)
+		C.free(unsafe.Pointer(con))
+              }
+	return scon, err
+}
+
+/*
+func Selable_lookup(name string, mode int) (string ,error) {
+	var con C.security_context_t
+	var sehandel *C.selabel_handle
+	sehandel := NewSelabel_handle()
+	var scon string
+	rc, err := C.selabel_lookup(sehandel, &con, C.CString(name), C.mode_t(mode))
+	if rc == 0 {
+		scon := C.GoString(con)
+		C.free(con)
+		C.free(sehandel)
+	       }
+	return scon, err
+}
+*/
+
 
 func Setexeccon(scon string) (int, error) {
 	var val *C.char
@@ -128,7 +182,8 @@ func Selinux_getenforce() int {
 
 func Selinux_getenforcemode() (int) {
 	var enforce C.int
-	C.selinux_getenforcemode(&enforce)
+	//C.selinux_getenforcemode(&enforce)
+	enforce = C.security_getenforce()
 	return int(enforce)
 }
 
@@ -176,7 +231,7 @@ func free_context(process_label string) {
 	scon = New_context(process_label)
 	mcs_delete(scon.Get_level())
 }
-
+/*
 func Get_lxc_contexts() (process_label string, file_label string) {
 	var val, key string
 	var bufin *bufio.Reader
@@ -234,6 +289,7 @@ exit:
 	file_label = scon.Get()
 	return process_label, file_label
 }
+*/
 
 func CopyLevel (src, dest string) (string, error) {
 	if ! Selinux_enabled() {
@@ -255,7 +311,7 @@ func CopyLevel (src, dest string) (string, error) {
 	tcon.Set_level(scon.Get_level())
 	return tcon.Get(), nil
 }
-
+/*
 func Test() {
 	var plabel,flabel string
 	if ! Selinux_enabled() {
@@ -280,3 +336,6 @@ func Test() {
 	flabel,_ = Matchpathcon("/home/dwalsh/.emacs", 0)
 	fmt.Println(flabel)
 }
+
+*/
+
