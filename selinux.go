@@ -15,11 +15,15 @@ package selinux
    
 */
 
-// #cgo  linux CFLAGS: -Iinclude -I.
+// #cgo  linux CFLAGS: -Iinclude -I. 
+// #cgo CFLAGS: -lc
 // #include <selinux/selinux.h>
 // #include <selinux/label.h>
 // #include "label_internal.h"
 // #include <stdlib.h>
+// #include <stdio.h>
+// #include <sys/types.h>
+// #include <sys/stat.h>
 import "C"
 import (
 	"encoding/binary"
@@ -67,38 +71,82 @@ func Matchpathcon(path string, mode int) (string, error) {
 }
 */
 
-func Setfilecon(path,scon string) (int, error) {
+func Lsetfilecon(path,scon string) (int, error) {
         rc, err := C.lsetfilecon(C.CString(path),C.CString(scon))
 	return int(rc), err
 }
 
-func Getfilecon(path string) (string ,error) {
+func Setfilecon(path, scon string) (int, error) {
+	rc, err := C.setfilecon(C.CString(path), C.CString(scon))
+	return int(rc), err
+}
+
+
+//os.File.fd int 
+/*
+f , err os.Open(file)
+if err != nil {
+	fd := int(f.Fd())
+Fsetfilecon(fd, scon) 
+*/
+
+
+func Fsetfilecon(fd int, scon string) (int,error) {
+	rc, err := C.fsetfilecon(C.int(fd), C.CString(scon))
+	return int(rc), err
+}
+
+func Lgetfilecon(path string) (string ,error) {
 	var scon string
 	var con C.security_context_t
 	//con = C.CString(scon)
 	rc, err := C.lgetfilecon(C.CString(path), &con)
-	if rc == 0 {
+	if rc >= 0 {
 		scon = C.GoString(con)
 		C.free(unsafe.Pointer(con))
               }
 	return scon, err
 }
 
-/*
-func Selable_lookup(name string, mode int) (string ,error) {
+
+
+
+func GetfileMode(name string) (int,error) {
+	var st C.struct_stat
+	 _ , err := C.stat(C.CString(name), &st)
+	if err == nil {
+		fmt.Println("mode = ", st.st_mode)
+		return int(st.st_mode), err
+	}
+	return -1, err 
+}
+
+
+//this func not work 
+func Selabel_lookup(name string, mode int) (string ,error) {
 	var con C.security_context_t
-	var sehandel *C.selabel_handle
-	sehandel := NewSelabel_handle()
-	var scon string
-	rc, err := C.selabel_lookup(sehandel, &con, C.CString(name), C.mode_t(mode))
+	//var sehandel C.selhandle 
+	var sehandle *C.struct_selabel_handle 
+	/*
+	var st C.struct_stat 
+	rc, _ := C.stat(C.CString(name), &st) 
 	if rc == 0 {
-		scon := C.GoString(con)
-		C.free(con)
-		C.free(sehandel)
+	mode = int(st.st_mode)
+	}
+	*/
+	
+	//var sehandel *C.selabel_handle
+	//sehandel := NewSelabel_handle()
+	var scon string
+	rc, err := C.selabel_lookup(sehandle, &con, C.CString(name),C.int(mode))
+	if rc == 0 {
+		scon = C.GoString(con)
+		//C.free(con)
+		//C.free(sehandel)
 	       }
 	return scon, err
 }
-*/
+
 
 
 func Setexeccon(scon string) (int, error) {
@@ -313,11 +361,11 @@ func CopyLevel (src, dest string) (string, error) {
 }
 /*
 func Test() {
-	var plabel,flabel string
+	var flabel string
 	if ! Selinux_enabled() {
 		return
 	}
-
+	
 	plabel, flabel = Get_lxc_contexts()
 	fmt.Println(plabel)
 	fmt.Println(flabel)
@@ -326,14 +374,16 @@ func Test() {
 	fmt.Println(plabel)
 	fmt.Println(flabel)
 	free_context(plabel)
+	
 	if Selinux_enabled() {
 		fmt.Println("Enabled")
 	} else {
 		fmt.Println("Disabled")
 	}
+
 	fmt.Println(Selinux_getenforce())
 	fmt.Println(Selinux_getenforcemode())
-	flabel,_ = Matchpathcon("/home/dwalsh/.emacs", 0)
+	flabel, _ = Getfilecon("/home/sn/.vimrc")
 	fmt.Println(flabel)
 }
 
