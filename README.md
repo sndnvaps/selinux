@@ -12,7 +12,7 @@ binding libselinux to golang
 To experment with selinux_go, you can just compile and run the test example 
 
 ```bash 
-go get github.com/sndnvaps/selinux_go 
+go get github.com/sndnvaps/selinux
 cd /path/to/selinux_go
 go test 
   
