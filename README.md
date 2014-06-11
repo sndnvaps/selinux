@@ -1,5 +1,4 @@
-# selinux_go
-
+# selinux
 
 # WHATS:
 
