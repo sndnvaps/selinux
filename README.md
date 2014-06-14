@@ -9,11 +9,11 @@ binding libselinux to golang
 # INSTALL:
 
 
-To experment with selinux_go, you can just compile and run the test example 
+To experment with selinux, you can just compile and run the test example 
 
 ```bash 
 go get github.com/sndnvaps/selinux
-cd /path/to/selinux_go
+cd /path/to/selinux
 go test 
   
 ```
@@ -26,7 +26,7 @@ go test
 package main
 
 import (
-	"github.com/sndnvaps/selinux_go"
+	"github.com/sndnvaps/selinux"
 	"fmt"
 )
 
