@@ -14,12 +14,15 @@ package selinux
    remove some dead code 
    
 */
+// use deepin linux 2013.1 
+// kernel requre 3.8 
+// libselinux == 2.3 
 
-// #cgo  linux CFLAGS: -Iinclude -I. 
+// //cgo  linux CFLAGS: -Iinclude -I. 
+// #cgo pkg-config: libselinux 
 // #cgo CFLAGS: -lc
 // #include <selinux/selinux.h>
 // #include <selinux/label.h>
-// #include "label_internal.h"
 // #include <stdlib.h>
 // #include <stdio.h>
 // #include <sys/types.h>
@@ -43,33 +46,31 @@ var (
 	mcs_list = make(map[string]bool)
 )
 
-//type Selabel_handle C.selabel_handle
-/*
-type selabel_handle struct {
-	 selabel *C.selabel_handle
-	//selabel Selabel_handle 
+// C.mode_t 
+
+
+
+func GetMode_t(path string) (C.mode_t) {
+	var st C.struct_stat
+	var mode C.mode_t  
+	if (C.stat(C.CString(path), &st) == 0) {
+	mode  =  C.mode_t(st.st_mode)
+	}
+	return  mode 
 }
 
-func NewSelabel_handle() selabel_handle {
-	var sehandle selabel_handle
-	return sehandle
-}
-
-*/
-/*
-func Matchpathcon(path string, mode int) (string, error) {
-	var con C.security_context_t
+func Matchpathcon(path string, mode C.mode_t) (string, error) {
+	var con *C.char 
 	var scon string
-	rc, err := C.matchpathcon(C.CString(path),C.mode_t(mode), &con)
+	rc, err := C.matchpathcon(C.CString(path),mode , &con)
 	if rc == 0 {
 		scon = C.GoString(con)
 		C.free(unsafe.Pointer(con))
 	}
 	return scon, err
 	
-	return Selable_lookup(path, mode)
 }
-*/
+
 
 func Lsetfilecon(path,scon string) (int, error) {
         rc, err := C.lsetfilecon(C.CString(path),C.CString(scon))
@@ -90,41 +91,36 @@ if err != nil {
 Fsetfilecon(fd, scon) 
 */
 
-
+//rc == 0 -> success 
 func Fsetfilecon(fd int, scon string) (int,error) {
-	rc, err := C.fsetfilecon(C.int(fd), C.CString(scon))
+	var con *C.char 
+	con = C.CString(scon)
+	rc, err := C.fsetfilecon(C.int(fd), con)
+	fmt.Println(rc)
+	fmt.Println(err)
 	return int(rc), err
 }
 
-func Lgetfilecon(path string) (string ,error) {
+//return selabel , sizeof(selabel)
+func Lgetfilecon(path string) (string ,int) {
 	var scon string
-	var con C.security_context_t
+	var con *C.char
 	//con = C.CString(scon)
-	rc, err := C.lgetfilecon(C.CString(path), &con)
-	if rc >= 0 {
+	 rc  , _ := C.lgetfilecon(C.CString(path), &con)
+	fmt.Println(C.GoString(con))
+	if rc > 0  {
 		scon = C.GoString(con)
 		C.free(unsafe.Pointer(con))
               }
-	return scon, err
+	return scon, int(rc) 
 }
 
 
-
-
-func GetfileMode(name string) (int,error) {
-	var st C.struct_stat
-	 _ , err := C.stat(C.CString(name), &st)
-	if err == nil {
-		fmt.Println("mode = ", st.st_mode)
-		return int(st.st_mode), err
-	}
-	return -1, err 
-}
 
 
 //this func not work 
 func Selabel_lookup(name string, mode int) (string ,error) {
-	var con C.security_context_t
+	var con *C.char
 	//var sehandel C.selhandle 
 	var sehandle *C.struct_selabel_handle 
 	/*
@@ -230,8 +226,7 @@ func Selinux_getenforce() int {
 
 func Selinux_getenforcemode() (int) {
 	var enforce C.int
-	//C.selinux_getenforcemode(&enforce)
-	enforce = C.security_getenforce()
+	enforce = C.selinux_getenforcemode(&enforce)	
 	return int(enforce)
 }
 

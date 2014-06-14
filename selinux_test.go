@@ -6,7 +6,7 @@ import (
 	. "selinux"
 	"fmt"
 	"testing"
-	"os"
+	//"os"
 )
 
 func TestSelinux_enabled(t *testing.T) { 
@@ -19,20 +19,18 @@ func TestSelinux_enabled(t *testing.T) {
 
 func TestGetfilecon(t *testing.T) {
 	var flabel string 
-	var err error 
-	flabel ,err = Lgetfilecon("/home/sn/.vimrc")
-	if err != nil {
-		fmt.Println(err)
-	} else {
-	fmt.Println("/home/sn/.vimrc label = ", flabel)
+	var size int 
+	flabel ,size = Lgetfilecon("selinux.go")
+	if size > 0  {
+	fmt.Println("selinux.go label = ", flabel)
 	}
 }
 
 func TestSetfilecon(t *testing.T) {
-	path := "/home/sn/.vimrc"
+	path := "selinux.go"
 	scon := "system_u:object_r:usr_t:s0"
-	_ , err := Lsetfilecon(path, scon)
-	if err != nil {
+	rc , _ := Lsetfilecon(path, scon)
+	if rc != 0  {
 		fmt.Println("Setfilecon failed\n")
 		} else {
 		fmt.Println("Setfilecon success\n")
@@ -40,42 +38,43 @@ func TestSetfilecon(t *testing.T) {
 }
 
 func TestFsetfilecon(t *testing.T) {
-	f, err := os.Open("/home/sn/.vimrc")
-	var fd int 
-	if err != nil {
-		fd = int(f.Fd())
-	}
-
 	scon := "unconfined_u:object_r:user_home_t:s0"
-	_ , e := Fsetfilecon(fd,scon) 
-	if e != nil {
+	rc , _ := Lsetfilecon("selinux.go",scon) 
+	if rc != 0 {
 	fmt.Println("fsetfilecon failed\n")
 	} else {
-	fmt.Println("fsetfilecon: vimrc -> ", scon)
+	fmt.Println("fsetfilecon: selinux.go -> ", scon)
 	}
-} 
-/*
-func TestSelabel_lookup(t *testing.T) {
-	name := "/home/sn/.vimrc"
-	//fstat , _ := os.Stat(name)
-	//fmt.Println(fstat.Mode()) 	
-	//mode := int(fstat.Mode())
-	mode , _ := GetfileMode(name)
-	if mode == -1 {
-	return 
-	}
-	fmt.Println("mode = ", mode)
-	flabel, err := Selabel_lookup(name, mode)
-	if err != nil {
-		fmt.Println("selabel_lookup selabel '/home/sn/.vimrc' = ",flabel)
-	} else {
-	fmt.Println("lookup selabel failed", err) 
-	}
-	
-	
 }
+
+
+func TestMatchpathcon(t *testing.T) {
+	path := "/home/sn/.vimrc" 
+	mode := GetMode_t(path)
+	if mode != 0  {
+		con, err := Matchpathcon(path, mode)
+		if err != nil {
+			fmt.Println("/home/sn/.vimrc selabel = ",con)
+			}
+		}
+}
+
+
+func TestSelinux_getenforcemode(t *testing.T) {
+	var enforce int 
+	enforce = Selinux_getenforcemode()
+	fmt.Printf("%s","Selinux mode = ")
+	if enforce == Enforcing {
+		fmt.Println("Enforcing mode\n")
+	} else if enforce == Permissive {
+		fmt.Println("permissive mode\n")
+	} else if enforce == Disabled {
+		fmt.Println("Disabled mode\n")
+	}
+}
+
 	
-*/
+	
 
 
 
