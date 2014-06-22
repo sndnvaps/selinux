@@ -6,7 +6,7 @@ import (
 	. "selinux"
 	"fmt"
 	"testing"
-	//"os"
+	"os"
 )
 
 func TestSelinux_enabled(t *testing.T) { 
@@ -37,24 +37,34 @@ func TestSetfilecon(t *testing.T) {
 		}
 }
 
+
+// fd := f.Fd()
+// os.Fileinfo 
 func TestFsetfilecon(t *testing.T) {
-	scon := "unconfined_u:object_r:user_home_t:s0"
-	rc , _ := Lsetfilecon("selinux.go",scon) 
+	f, err := os.Create("test.selinux")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+	fd := int(f.Fd())
+
+	scon := "system_u:object_r:usr_t:s0"
+	rc, _ := Fsetfilecon(fd, scon)
 	if rc != 0 {
 	fmt.Println("fsetfilecon failed\n")
 	} else {
-	fmt.Println("fsetfilecon: selinux.go -> ", scon)
+	fmt.Println("fsetfilecon: test.selinux -> ", scon)
 	}
 }
 
 
 func TestMatchpathcon(t *testing.T) {
-	path := "/home/sn/.vimrc" 
+	path := "selinux_test.go" 
 	mode := GetMode_t(path)
 	if mode != 0  {
 		con, err := Matchpathcon(path, mode)
 		if err != nil {
-			fmt.Println("/home/sn/.vimrc selabel = ",con)
+			fmt.Println("selinux_test.go selabel = ",con)
 			}
 		}
 }
@@ -72,9 +82,5 @@ func TestSelinux_getenforcemode(t *testing.T) {
 		fmt.Println("Disabled mode\n")
 	}
 }
-
-	
-	
-
 
 

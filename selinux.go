@@ -96,8 +96,6 @@ func Fsetfilecon(fd int, scon string) (int,error) {
 	var con *C.char 
 	con = C.CString(scon)
 	rc, err := C.fsetfilecon(C.int(fd), con)
-	fmt.Println(rc)
-	fmt.Println(err)
 	return int(rc), err
 }
 
