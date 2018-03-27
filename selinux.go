@@ -20,7 +20,6 @@ package selinux
 
 // //cgo  linux CFLAGS: -Iinclude -I.
 // #cgo pkg-config: libselinux
-// #cgo CFLAGS: -lc
 // #include <selinux/selinux.h>
 // #include <selinux/label.h>
 // #include <stdlib.h>
@@ -46,17 +45,18 @@ import (
 
 var (
 	assignRegex = regexp.MustCompile(`^([^=]+)=(.*)$`)
-	mcs_list    = make(map[string]bool)
+	mcsList     = make(map[string]bool)
 )
 
+//File attribute names
 const (
-	SECURITY_CAPABILITY = "security.capability" // for get capability from xattr
-	SECURITY_SELINUX    = "security.selinux"    //for get selinux_label from xattr
+	SecurityCapability = "security.capability" // for get capability from xattr
+	SecuritySelinux    = "security.selinux"    //for get selinux_label from xattr
 )
 
 // C.mode_t
 
-// Returns a nil slice and nil error if the xattr is not set
+// Lgetxattr Returns a nil slice and nil error if the xattr is not set
 func Lgetxattr(path string, attr string) ([]byte, error) {
 	pathBytes, err := syscall.BytePtrFromString(path)
 	if err != nil {
@@ -86,6 +86,7 @@ func Lgetxattr(path string, attr string) ([]byte, error) {
 
 var _zero uintptr
 
+//Lsetxattr sets the attribute on the file
 func Lsetxattr(path string, attr string, data []byte, flags int) error {
 	pathBytes, err := syscall.BytePtrFromString(path)
 	if err != nil {
@@ -108,7 +109,7 @@ func Lsetxattr(path string, attr string, data []byte, flags int) error {
 	return nil
 }
 
-//os.File.Fd() uintptr
+//Fgetxattr os.File.Fd() uintptr
 func Fgetxattr(fd uintptr, attr string) ([]byte, error) {
 	attrBytes, err := syscall.BytePtrFromString(attr)
 	if err != nil {
@@ -133,6 +134,7 @@ func Fgetxattr(fd uintptr, attr string) ([]byte, error) {
 	return dest[:sz], nil
 }
 
+//Fsetxattr sets the extended attribute
 func Fsetxattr(fd uintptr, attr string, data []byte, flags int) error {
 
 	attrBytes, err := syscall.BytePtrFromString(attr)
@@ -152,7 +154,8 @@ func Fsetxattr(fd uintptr, attr string, data []byte, flags int) error {
 	return nil
 }
 
-func GetMode_t(path string) (C.mode_t, int) {
+//GetModeT gets the c mode
+func GetModeT(path string) (C.mode_t, int) {
 	var st C.struct_stat
 	var mode C.mode_t
 	var result C.int
@@ -163,6 +166,7 @@ func GetMode_t(path string) (C.mode_t, int) {
 	return mode, -1 //cannot find the file
 }
 
+//Matchpathcon determines the expected permissions for a given path
 func Matchpathcon(path string, mode C.mode_t) (string, error) {
 	var con *C.char
 	var scon string
@@ -175,11 +179,13 @@ func Matchpathcon(path string, mode C.mode_t) (string, error) {
 
 }
 
+//Lsetfilecon sets the permissions for a path
 func Lsetfilecon(path, scon string) (int, error) {
 	rc, err := C.lsetfilecon(C.CString(path), C.CString(scon))
 	return int(rc), err
 }
 
+//Setfilecon sets the permissions on a path
 func Setfilecon(path, scon string) (int, error) {
 	rc, err := C.setfilecon(C.CString(path), C.CString(scon))
 	return int(rc), err
@@ -193,7 +199,7 @@ if err != nil {
 Fsetfilecon(fd, scon)
 */
 
-//rc == 0 -> success
+//Fsetfilecon rc == 0 -> success
 func Fsetfilecon(fd int, scon string) (int, error) {
 	var con *C.char
 	con = C.CString(scon)
@@ -201,7 +207,7 @@ func Fsetfilecon(fd int, scon string) (int, error) {
 	return int(rc), err
 }
 
-//return selabel , sizeof(selabel)
+//Lgetfilecon return selabel , sizeof(selabel)
 func Lgetfilecon(path string) (string, int) {
 	var scon string
 	var con *C.char
@@ -215,8 +221,8 @@ func Lgetfilecon(path string) (string, int) {
 	return scon, int(rc)
 }
 
-//this func not work
-func Selabel_lookup(name string, mode int) (string, error) {
+//SelabelLookup this func not work
+func SelabelLookup(name string, mode int) (string, error) {
 	var con *C.char
 	//var sehandel C.selhandle
 	var sehandle *C.struct_selabel_handle
@@ -240,6 +246,7 @@ func Selabel_lookup(name string, mode int) (string, error) {
 	return scon, err
 }
 
+//Setfscreatecon sets the default creation label
 func Setfscreatecon(scon string) (int, error) {
 	var (
 		rc  C.int
@@ -253,6 +260,7 @@ func Setfscreatecon(scon string) (int, error) {
 	return int(rc), err
 }
 
+//Getfscreatecon gets the default create label
 func Getfscreatecon() (string, error) {
 	var scon *C.char
 	var fcon string
@@ -265,6 +273,7 @@ func Getfscreatecon() (string, error) {
 	return fcon, err
 }
 
+//Getcon gets the selinux context
 func Getcon() string {
 	var pcon *C.char
 	C.getcon(&pcon)
@@ -273,6 +282,7 @@ func Getcon() string {
 	return scon
 }
 
+//Getpidcon gets the selinux context for a given pid
 func Getpidcon(pid int) (string, error) {
 	var pcon *C.char
 	var scon string
@@ -285,6 +295,7 @@ func Getpidcon(pid int) (string, error) {
 	return scon, err
 }
 
+//Getpeercon gets the selinux context for a given peer
 func Getpeercon(socket int) (string, error) {
 	var pcon *C.char
 	var scon string
@@ -297,9 +308,10 @@ func Getpeercon(socket int) (string, error) {
 	return scon, err
 }
 
+//Setexeccon sets the context for processes that are executed from here
 func Setexeccon(scon string) (int, error) {
 	var val *C.char
-	if !Selinux_enabled() {
+	if !Enabled() {
 		return 0, nil
 	}
 	if scon != "" {
@@ -311,47 +323,70 @@ func Setexeccon(scon string) (int, error) {
 	return int(rc), err
 }
 
+//Context is an selinux context
 type Context struct {
 	con []string
 }
 
-func (c *Context) Set_user(user string) {
+//SetUser sets the context user
+func (c *Context) SetUser(user string) {
 	c.con[0] = user
 }
-func (c *Context) Get_user() string {
+
+//GetUser sets the context user
+func (c *Context) GetUser() string {
 	return c.con[0]
 }
-func (c *Context) Set_role(role string) {
+
+//SetRole sets the context user
+func (c *Context) SetRole(role string) {
 	c.con[1] = role
 }
-func (c *Context) Get_role() string {
+
+//GetRole sets the context user
+func (c *Context) GetRole() string {
 	return c.con[1]
 }
-func (c *Context) Set_type(setype string) {
+
+//SetType sets the context
+func (c *Context) SetType(setype string) {
 	c.con[2] = setype
 }
-func (c *Context) Get_type() string {
+
+//GetType sets the context
+func (c *Context) GetType() string {
 	return c.con[2]
 }
-func (c *Context) Set_level(mls string) {
+
+//SetLevel sets the context
+func (c *Context) SetLevel(mls string) {
 	c.con[3] = mls
 }
-func (c *Context) Get_level() string {
+
+//GetLevel gets the context
+func (c *Context) GetLevel() string {
 	return c.con[3]
 }
+
+//Get gets the context
 func (c *Context) Get() string {
 	return strings.Join(c.con, ":")
 }
+
+//Set sets the context
 func (c *Context) Set(scon string) {
 	c.con = strings.SplitN(scon, ":", 4)
 }
-func New_context(scon string) Context {
+
+//NewContext sets the context user
+func NewContext(scon string) Context {
 	var con Context
 	con.Set(scon)
 	return con
 }
 
-func Is_selinux_enabled() bool {
+//IsSelinuxEnabled checks the selinux status
+func IsSelinuxEnabled() bool {
 	b := C.is_selinux_enabled()
 	if b > 0 {
 		return true
@@ -359,7 +394,8 @@ func Is_selinux_enabled() bool {
 	return false
 }
 
-func Selinux_enabled() bool {
+//Enabled checks the selinux status
+func Enabled() bool {
 	b := C.is_selinux_enabled()
 	if b > 0 {
 		return true
@@ -367,34 +403,38 @@ func Selinux_enabled() bool {
 	return false
 }
 
+//Default Selinux modes
 const (
 	Enforcing  = 1
 	Permissive = 0
 	Disabled   = -1
 )
 
-func Selinux_getenforce() int {
+//Getenforce determines the enforcement mode
+func Getenforce() int {
 	return int(C.security_getenforce())
 }
 
-func Selinux_getenforcemode() int {
+//Getenforcemode gets the mode
+func Getenforcemode() int {
 	var enforce C.int
 	enforce = C.selinux_getenforcemode(&enforce)
 	return int(enforce)
 }
 
-func mcs_add(mcs string) {
-	mcs_list[mcs] = true
+func mcsAdd(mcs string) {
+	mcsList[mcs] = true
 }
 
-func mcs_delete(mcs string) {
-	mcs_list[mcs] = false
+func mcsDelete(mcs string) {
+	mcsList[mcs] = false
 }
 
-func mcs_exists(mcs string) bool {
-	return mcs_list[mcs]
+func mcsExists(mcs string) bool {
+	return mcsList[mcs]
 }
 
+//IntToMcs changes the into the correct mcs label
 func IntToMcs(id int, catRange uint32) string {
 	if (id < 1) || (id > 523776) {
 		return ""
@@ -406,14 +446,14 @@ func IntToMcs(id int, catRange uint32) string {
 	ORD := id
 	for ORD > TIER {
 		ORD = ORD - TIER
-		TIER -= 1
+		TIER--
 	}
 	TIER = SETSIZE - TIER
 	ORD = ORD + TIER
 	return fmt.Sprintf("s0:c%d,c%d", TIER, ORD)
 }
 
-func uniq_mcs(catRange uint32) string {
+func uniqMcs(catRange uint32) string {
 	var n uint32
 	var c1, c2 uint32
 	var mcs string
@@ -432,25 +472,25 @@ func uniq_mcs(catRange uint32) string {
 			}
 		}
 		mcs = fmt.Sprintf("s0:c%d,c%d", c1, c2)
-		if mcs_exists(mcs) {
+		if mcsExists(mcs) {
 			continue
 		}
-		mcs_add(mcs)
+		mcsAdd(mcs)
 		break
 	}
 	return mcs
 }
-func free_context(process_label string) {
+func freeContext(processLabel string) {
 	var scon Context
-	scon = New_context(process_label)
-	mcs_delete(scon.Get_level())
+	scon = NewContext(processLabel)
+	mcsDelete(scon.GetLevel())
 }
 
 /*
 func Get_lxc_contexts() (process_label string, file_label string) {
 	var val, key string
 	var bufin *bufio.Reader
-	if ! Selinux_enabled() {
+	if ! SelinuxEnabled() {
 		return
 	}
 	lxc_path := C.GoString(C.selinux_lxc_contexts_path())
@@ -506,8 +546,9 @@ exit:
 }
 */
 
+//CopyLevel preserves the selinux label
 func CopyLevel(src, dest string) (string, error) {
-	if !Selinux_enabled() {
+	if !Enabled() {
 		return "", nil
 	}
 	if src == "" {
@@ -521,18 +562,20 @@ func CopyLevel(src, dest string) (string, error) {
 	if rc != 0 {
 		return "", err
 	}
-	scon := New_context(src)
-	tcon := New_context(dest)
-	tcon.Set_level(scon.Get_level())
+	scon := NewContext(src)
+	tcon := NewContext(dest)
+	tcon.SetLevel(scon.GetLevel())
 	return tcon.Get(), nil
 }
+
+//RestoreCon relabels a given file path
 func RestoreCon(fpath string, recurse bool) error {
 	var flabel string
 	var err error
-	var fs_mode C.mode_t
+	var fsMode C.mode_t
 	var ecode int //error code
 
-	if !Selinux_enabled() {
+	if !Enabled() {
 		return nil
 	}
 
@@ -551,12 +594,12 @@ func RestoreCon(fpath string, recurse bool) error {
 		}
 		return nil
 	}
-	if fs_mode, ecode = GetMode_t(fpath); ecode != 0 {
+	if fsMode, ecode = GetModeT(fpath); ecode != 0 {
 		//if fs, err = os.Stat(fpath); err != nil {
 		return fmt.Errorf("Unable stat %v: %v", fpath, err)
 	}
 
-	if flabel, err = Matchpathcon(fpath, fs_mode); flabel == "" {
+	if flabel, err = Matchpathcon(fpath, fsMode); flabel == "" {
 		return fmt.Errorf("Unable to get context for %v: %v", fpath, err)
 	}
 
